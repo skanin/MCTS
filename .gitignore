@@ -1,0 +1,3 @@
+.vscode/*
+*.gv*
+*/__pycache__/*

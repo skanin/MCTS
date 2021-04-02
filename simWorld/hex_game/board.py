@@ -63,3 +63,12 @@ class Board:
 
     def __iter__(self):
         return BoardIterator(self)
+
+    def to_string_representation(self):
+        st = ''
+        for space in self.content:
+            if space.has_piece():
+                st += str(space.player)
+            else:
+                st += '0'
+        return st

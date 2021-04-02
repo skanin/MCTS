@@ -1,0 +1,12 @@
+game: 'nim'
+
+nim:
+    'max_removal': 3
+    'num_stones': 50
+    actor:
+        'learning_rate': 0.9
+        'layers': [15, 20, 30, 3]
+
+training:
+    'num_games': 200
+    'num_search_games': 50

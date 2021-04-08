@@ -36,7 +36,7 @@ class Space:
     def get_state(self):
         if not self.piece:
             return (0,0)
-        if self.player == 0:
+        if self.player == 1:
             return (1, 0)
         return (0, 1)
 

@@ -1,0 +1,27 @@
+game: 'hex'
+
+starting_player: 1
+
+epsilon: 0.1
+
+training:
+    'num_games': 1000
+    'num_search_games': 200
+    'save': True
+    'num_saves': 5
+
+hex:
+    'board_size': 6
+    'display': False
+    actor:
+        'learning_rate': 0.001
+        'layers': [40, 40, 36]
+        'optimizer': 'adam'
+        'activation_fn': 'tanh'
+        'output_activation': 'softmax'
+        'loss_fn': 'cross_entropy'
+   
+graph:
+    'pause': True
+    'update_freq': .01
+    'pause_on_win': False

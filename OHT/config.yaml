@@ -1,0 +1,48 @@
+game: 'hex'
+
+starting_player: 1
+
+epsilon: 0.1
+
+nim:
+    'max_removal': 3
+    'num_stones': 15
+    actor:
+        'learning_rate': 0.001
+        'layers': [4, 10, 3]
+        'optimizer': 'sgd'
+        'activation_fn': 'relu'
+        'output_activation': 'softmax'
+        'loss_fn': 'cross_entropy'
+
+training:
+    'num_games': 1000
+    'num_search_games': 200
+    'save': True
+    'num_saves': 5
+    
+
+
+hex:
+    'board_size': 5
+    'display': False
+    actor:
+        'learning_rate': 0.001
+        'layers': [26, 30, 25]
+        'optimizer': 'sgd'
+        'activation_fn': 'relu'
+        'output_activation': 'softmax'
+        'loss_fn': 'cross_entropy'
+
+topp:
+    'M': 5
+    'num_games': 25
+    game:
+        'board_size': 5
+        'display': False
+
+    
+graph:
+    'pause': True
+    'update_freq': .01
+    'pause_on_win': False

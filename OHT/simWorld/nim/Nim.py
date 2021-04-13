@@ -52,3 +52,11 @@ class Nim(SimWorld):
         nim = Nim(num_stones, max_removal)
         nim.player = player
         return nim
+
+    def game_from_game(self, st, old_game):
+        player = int(st[0])
+        num_stones = int(st[1:])
+        max_removal = self.cfg['nim']['max_removal']
+        game = Nim(num_stones, max_removal, old_game.starting_player)
+        game.player = player
+        return game

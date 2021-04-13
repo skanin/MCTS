@@ -1,20 +1,21 @@
 import math
 import itertools
-from .space import Space
+# from .space import Space
 from copy import deepcopy, copy
-from .board import Board
-from .UnionFind import UnionFind
-from .graph import Graph
+from .board2 import Board2
+# from .UnionFind import UnionFind
+from .graph2 import Graph
 import yaml
+import random
 
-class Hex:
-    def __init__(self, board_size, display, starting_player):
-        self.board = Board(board_size)
-        self.player = 1
+class Hex3:
+    def __init__(self, board_size, display, starting_player, cfg):
+        self.board = Board2(board_size)
+        self.player = starting_player
         self.starting_player = starting_player
         self.display = display
-        self.cfg = yaml.safe_load(open('config.yaml', 'r'))
-        self.LEGAL_MOVES = list(map(lambda x: x.get_coords(), itertools.chain(*self.board)))
+        self.cfg = cfg # yaml.safe_load(open('config.yaml', 'r'))
+        self.LEGAL_MOVES = self.board.LEGAL_MOVES
         self.winner = -1
 
         if self.display:
@@ -32,8 +33,9 @@ class Hex:
         if not self.is_legal_move(move):
             raise Exception('Illegal move')
 
-        space = self.board.get_space_from_coord(move)
-        space.set_piece(True, self.player)
+        self.board.content[move[0]][move[1]] = self.player
+        # space = self.board.get_space_from_coord(move)
+        # space.set_piece(True, self.player)
 
         win = self.is_win()
 
@@ -65,46 +67,67 @@ class Hex:
     def traverse(self, start, goal, player=0):
         open_list = []
         closed = []
+        get_player = lambda x: self.board[x]
+        start = Space2(start, get_player(start)) # self.board.get_space_from_coord(start)
 
-        start = self.board.get_space_from_coord(start)
+        goal = Space2(goal, get_player(goal))
+
+        if start.player == -1 or start.player != player or goal.player != start.player:
+            return []
 
         open_list.append(start)
 
         while len(open_list) > 0:
             space = min(open_list, key = lambda x: x.f)
             open_list.remove(space)
-            
-            space = deepcopy(space) if self.display else copy(space)
+            if not len(open_list) and space.player == 0:
+                return []
 
-            if not space.has_piece() or space.get_player() != player:
+            while space.player == 0:
+                space = min(open_list, key = lambda x: x.f)
+                open_list.remove(space)
+                if not len(open_list):
+                    return []
+
+            # space = copy(space) # deepcopy(space) if self.display else copy(space)
+
+            if space.player == 0 or space.player != player:
                 continue
 
-            closed.append(space.get_coords())
+            closed.append(space.coords)
 
-            if space.get_coords() == goal.get_coords():
+            if space.coords == goal.coords:
                 path = []
                 current = space
                 while current is not None:
-                    path.append(current.get_coords())
+                    coords = current.coords
+                    if coords in path:
+                        return path[::-1]
+                    if coords not in path:
+                        path.append(coords)
+                    
                     current = current.parent
                 return path[::-1]
             
-            for neighbor in space.get_neighbors():
-                if not neighbor.has_piece() or neighbor.get_player() != player or neighbor.get_coords() in closed:
-                    continue
+            for neighbor in filter(lambda x: get_player(x) == space.player and x not in closed, self.board.get_neighbors(space.coords)):
+                # if not neighbor.has_piece() or neighbor.get_player() != player or neighbor.get_coords() in closed:
+                #     print('Hey')
+                #     continue
                 
                 g = space.f + 1
-                h = self.euclidean(goal.get_coords(), neighbor.get_coords())
+                h = self.euclidean(goal.coords, neighbor)
                 f = h + g
-                if neighbor.get_coords() in list(map(lambda x: x.get_coords(), open_list)):
-                    if neighbor.g > g:
+                if neighbor in list(map(lambda x: x.coords, open_list)):
+                    tmp = list(filter(lambda x: x.coords == neighbor, open_list))[0]
+                    if tmp.g > g:
                         continue
-
-                neighbor.parent = space
-                neighbor.g = g
-                neighbor.h = h
-                neighbor.f = f
-                open_list.append(neighbor)
+                
+                n = Space2(neighbor, get_player(neighbor))
+                n.parent = space if space.coords != neighbor else space.parent
+                n.g = g
+                n.h = h
+                n.f = f
+                open_list.append(n)
         return []
         
 
@@ -120,14 +143,16 @@ class Hex:
         ]
 
         paths = []
-        if len(list(filter(lambda x: x.player==1, itertools.chain(*self.board.content)))) < 4:
+        if len(list(filter(lambda x: x==1, itertools.chain(*self.board.content)))) < 4:
             return -1, False, []
 
         for (player, start) in enumerate(start_states):
             player = player + 1
-            end_spaces = list(filter(lambda x: x.has_piece() and x.get_player() == player, map(self.board.get_space_from_coord, win_states[player-1])))
+            # end_spaces = list(filter(lambda x: x != 0 and x == player, map(lambda y: self.board[y], win_states[player-1])))
             for start_coord in start:
-                for goal in end_spaces:
+                for goal in win_states[player-1]:
+                    if self.board[goal] != player:
+                        continue
                     path = self.traverse(start_coord, goal, player=player)
                     if len(path) > 0:
                         paths.append((player, True, path))
@@ -141,7 +166,8 @@ class Hex:
         pass
 
     def to_string_representation(self):
-        return str(self.player) + self.board.to_string_representation()
+        st = str(self.player) + self.board.to_string_representation()
+        return st
 
     def game_from_string_representation(self, st):
         curr_player = int(st[0])
@@ -153,12 +179,12 @@ class Hex:
     def game_from_game(self, st, old_game):
         curr_player = int(st[0])
         board = Board.board_from_string_representation(st)
-        game = Hex(old_game.board.board_size, display=old_game.display, starting_player=old_game.starting_player)
-        game.board = board
+        game = Hex(old_game.board.board_size, display=old_game.display, starting_player=old_game.starting_player, cfg=self.cfg)
         game.player = curr_player
+        game.starting_player = old_game.starting_player
+        game.board = board
         # game.starting_player = old_game.starting_player
         return game
-
 
     # @staticmethod
     # def generate_child_states(game):
@@ -176,3 +202,23 @@ class Hex:
         if not win[1]:
             return False
         return win[0]
+
+class Space2:
+    def __init__(self, coords, player):
+        self.coords = coords
+        self.player = player
+        self.f = 0
+        self.h = 0
+        self.g = 0
+        self.parent = None
+
+if __name__ == '__main__':
+    
+    
+    for _ in range(5):
+        game = Hex3(15, True, 1, yaml.safe_load(open('config.yaml', 'r')))
+        done = False
+        while not done:
+            move = random.choice(game.get_legal_moves())
+            _, winner, done, _, _ = game.make_move(move)
+        print(f'Player {winner} wins!')

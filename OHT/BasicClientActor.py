@@ -1,4 +1,5 @@
 import math
+import yaml
 from BasicClientActorAbs import BasicClientActorAbs
 from simWorld.hex_game.Hex import Hex
 from policy import Policy
@@ -6,6 +7,7 @@ from policy import Policy
 class BasicClientActor(BasicClientActorAbs):
 
     def __init__(self, IP_address=None, verbose=True):
+        self.cfg = yaml.safe_load(open('../config.yaml', 'r'))
         self.series_id = -1
         BasicClientActorAbs.__init__(self, IP_address, verbose=verbose)
         self.game = None
@@ -56,7 +58,7 @@ class BasicClientActor(BasicClientActorAbs):
             self.actor = Policy('hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', 'hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', self.series_id)
         elif self.game_size == 6:
             
-            self.actor = Policy('hex-6x6-at-200-of-200-episodes-with-400-simulations-07-04-2021-11-25', 'hex-6x6-at-200-of-200-episodes-with-400-simulations-07-04-2021-11-25', self.series_id)
+            self.actor = Policy('Hex-6x6-at-750-of-1000-episodes-13-04-2021-07-11', 'Hex-6x6-at-750-of-1000-episodes-13-04-2021-07-11', self.series_id, self.cfg)
         #############################
         #
         #

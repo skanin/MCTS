@@ -1,9 +1,8 @@
 import yaml
-from simWorld.sim_world import SimWorld
 
-class Nim(SimWorld):
+class Nim():
     def __init__(self, num_stones, max_removal, starting_player):
-        self.player = 1
+        self.player = starting_player
         self.starting_player = starting_player
         self.num_stones = num_stones
         self.max_removal = max_removal
@@ -52,3 +51,11 @@ class Nim(SimWorld):
         nim = Nim(num_stones, max_removal)
         nim.player = player
         return nim
+
+    def game_from_game(self, st, old_game):
+        player = int(st[0])
+        num_stones = int(st[1:])
+        max_removal = self.cfg['nim']['max_removal']
+        game = Nim(num_stones, max_removal, old_game.starting_player)
+        game.player = player
+        return game

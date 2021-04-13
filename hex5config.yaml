@@ -6,18 +6,18 @@ epsilon: 0.1
 
 training:
     'num_games': 1000
-    'num_search_games': 200
+    'num_search_games': 30
     'save': True
     'num_saves': 5
 
 hex:
-    'board_size': 6
+    'board_size': 5
     'display': False
     actor:
-        'learning_rate': 0.001
-        'layers': [40, 40, 36]
+        'learning_rate': 0.000125
+        'layers': [30, 30, 25]
         'optimizer': 'adam'
-        'activation_fn': 'tanh'
+        'activation_fn': 'sigmoid'
         'output_activation': 'softmax'
         'loss_fn': 'cross_entropy'
    

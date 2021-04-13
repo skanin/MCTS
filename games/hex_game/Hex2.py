@@ -21,8 +21,17 @@ class Hex2:
         self.player_2_played = 0
         self.player_1_groups = UnionFind()
         self.player_2_groups = UnionFind()
-        self.player_1_groups.set_ignored_elements([1, 2])
-        self.player_2_groups.set_ignored_elements([3, 4])
+        # self.player_1_groups.set_ignored_elements([1, 2])
+        # self.player_2_groups.set_ignored_elements([1, 2])
+        self.start_states = [
+            [(i, 0) for i in range(self.board.board_size)],
+            [(0, i) for i in range(self.board.board_size)]
+        ]
+
+        self.win_states = [
+            [(i, self.board.board_size - 1) for i in range(self.board.board_size)], 
+            [(self.board.board_size - 1, i) for i in range(self.board.board_size)]
+        ]
 
         if self.display:
             self.graph = Graph(self.board, self.cfg['graph']['pause'], self.cfg['graph']['update_freq']) #board, pause, update_freq 
@@ -77,12 +86,14 @@ class Hex2:
         
         if self.winner == -1:
             self.change_player()
+        
 
-        if self.winner != -1:
-            self.graph.pause = False
+        print(self.player_1_groups.get_groups())
 
-        self.graph.show_board()
-
+        if self.display:
+            return self.to_string_representation(), self.winner, self.winner != -1, [], self.get_legal_moves()
+        return self.to_string_representation(), self.winner, self.winner != -1, self.get_legal_moves()
+    
     def place_player1(self, move):
         if move in self.get_legal_moves():
             self.board.content[move[0]][move[1]].set_piece(True, 1)
@@ -108,9 +119,9 @@ class Hex2:
             raise ValueError(f"{move} is an illegal move!")
         # if the placed cell touches a white edge connect it appropriately
         if move[0] == 0:
-            self.player_2_groups.join(3, move)
+            self.player_2_groups.join(1, move)
         if move[0] == self.board.board_size - 1:
-            self.player_2_groups.join(4, move)
+            self.player_2_groups.join(2, move)
         # join any groups connected by the new white stone
         for n in self.board.get_space_from_coord(move).neighbors:
             if n.player == 2:
@@ -122,12 +133,20 @@ class Hex2:
         Return a number corresponding to the winning player,
         or none if the game is not over.
         """
-        if self.player_1_groups.connected(1, 2):
-            return 1
-        elif self.player_2_groups.connected(1, 2):
-            return 2
-        else:
-            return -1
+        
+
+        for (player, start) in enumerate(start_states):
+            player = player + 1
+            end_spaces = list(filter(lambda x: x.has_piece() and x.get_player() == player, map(self.board.get_space_from_coord, win_states[player-1])))
+            for start_coord in start:
+                for goal in end_spaces:
+                    if player == 1:
+                        if self.player_1_groups.connected(start_coord, goal):
+                            return 1
+                    else:
+                        if self.player_2_groups.connected(start_coord, goal):
+                            return 2
+        return -1
 
     def euclidean(self, x, y):
         return math.sqrt(sum([(a - b) ** 2 for a, b in zip(x, y)]))

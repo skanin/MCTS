@@ -8,12 +8,12 @@ from .graph import Graph
 import yaml
 
 class Hex:
-    def __init__(self, board_size, display, starting_player):
+    def __init__(self, board_size, display, starting_player, cfg):
         self.board = Board(board_size)
         self.player = starting_player
         self.starting_player = starting_player
         self.display = display
-        self.cfg = yaml.safe_load(open('config.yaml', 'r'))
+        self.cfg = cfg # yaml.safe_load(open('config.yaml', 'r'))
         self.LEGAL_MOVES = list(map(lambda x: x.get_coords(), itertools.chain(*self.board)))
         self.winner = -1
 
@@ -170,9 +170,11 @@ class Hex:
 
     def game_from_game(self, st, old_game):
         curr_player = int(st[0])
-        # board = Board.board_from_string_representation(st)
-        game = Hex(old_game.board.board_size, display=old_game.display, starting_player=old_game.starting_player)
+        board = Board.board_from_string_representation(st)
+        game = Hex(old_game.board.board_size, display=old_game.display, starting_player=old_game.starting_player, cfg=self.cfg)
         game.player = curr_player
+        game.starting_player = old_game.starting_player
+        game.board = board
         # game.starting_player = old_game.starting_player
         return game
 

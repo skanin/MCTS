@@ -1,9 +1,3 @@
-from env import Env
-from simWorld.nim.Nim import Nim
-from simWorld.hex_game.Hex import Hex
-from simWorld.hex_game.Hex2 import Hex2
-from simWorld.hex_game.board import Board
-from simWorld.hex_game.graph import Graph
 import random
 import mcts
 import nn
@@ -14,12 +8,15 @@ import math
 import time
 import os
 import datetime
-import logging
-from threading import Thread
 import time
-from OHT.BasicClientActor import BasicClientActor
+from games.nim import Nim
+from games.hex_game import Hex, Hex2, Board, Graph
+from policy import Policy
 
-def do_games(num_games, num_search_games):
+def test_nim(cfg):
+    num_games = cfg['training']['num_games']
+    num_search_games = cfg['training']['num_search_games']
+
     ANET = nn.Actor(cfg)
     RBUF = []
 
@@ -35,67 +32,38 @@ def do_games(num_games, num_search_games):
     for episode in range(num_games):
         print(f'Episode {episode + 1}/{num_games}')
         game = Nim(cfg['nim']['num_stones'], cfg['nim']['max_removal'], starting_player)
-
         s_init = game.to_string_representation()
-        root = mcts.Node2(None, None, game.starting_player)
-        root_copy = root
+        root = mcts.Node2(None, None, game.starting_player, s_init)
         mct = mcts.MCTS2(root, ANET, game.starting_player, cfg['epsilon'], game)
-
-        legal_moves = game.get_legal_moves()
 
         done = False
         
-        
         while not done:
-            # mctGame = game.game_from_string_representation(root.game_state_string)
-            leaf_nodes = []
             for search_game in range(num_search_games):
-                
-                # path = mct.select(root)
-                # leaf_node = path[-1]
-                #print(leaf_node.game_state.is_win())
-                leaf_node, leaf_state = mct.select()
-                leaf_nodes.append(leaf_node)
-                # mct.expand(leaf_node)
+                leaf_node, leaf_state, path, actions = mct.select()
                 turn = leaf_state.player
-                # final_state, reward = mct.rollout(mctGame, leaf_node)
-                outcome = mct.rollout(leaf_state)
-                mct.backprop(leaf_node, turn, outcome)
-                # print(final_state)
-                ## mct.backprop(leaf_node, reward)
-                # mctGame = game.game_from_string_representation(root.game_state_string)
-            dist = mct.get_action_distribution() # list(map(lambda x: x[1].num_visits, list(root.children.items())))
-            # print(dist)
+                outcome = mct.rollout(leaf_state, path)
+                mct.backprop(leaf_node, turn, outcome, path, actions)
+
+            dist = mct.get_action_distribution()
             RBUF.append((game.to_string_representation(), dist))
-            # print(dist)
-            # print(root.children.values())
-            # print(list(map(lambda x: (x[0], x[1].num_visits), root.children.items())))
             move = dist.index(max(dist))+1
-            # print(root.game_state_string)
-            #  print(move)
             string_state, done, player, legal_moves = game.make_move(move)
-            # time.sleep(1)
             if done:
                 break
-            
-            # print(root)
-            # print(root.children)
 
-            # new_root = list(filter(lambda x: x.game_state_string == string_state, list(root.children.values())))[0]
-            new_root = root.children[move]
+            tmp = mct.graph[hash(root.state)]
+            new_root = list(filter(lambda x: x.move == move, mct.graph[hash(root.state)]))[0]
+
             # time.sleep(.5)
             # mct.show()
             mct.prune(new_root, game)
             root = new_root
             
-
-        # mct.prune(root_copy)
-        # time.sleep(.5)
-        # mct.show()
         starting_player = 1 if starting_player == 2 else 2
+
         print(f'Player {player} wins!!')
-        # print(len(RBUF))
-        loss = ANET.trainOnRBUF(RBUF, 128 if len(RBUF) >= 128 else len(RBUF))
+        loss = ANET.trainOnRBUF(RBUF, 64 if len(RBUF) >= 64 else len(RBUF))
         losses.append((episode + 1, loss))
         if player == 1:
             player1wins += 1
@@ -143,39 +111,20 @@ def test_hex(cfg):
 
     for episode in range(num_games):
         print(f'Episode {episode + 1}/{num_games}')
-        
-        # board = Board(cfg['hex']['board_size'])
         game = Hex(cfg['hex']['board_size'], cfg['hex']['display'], starting_player)
-        # graph = Graph(board, True, 0.1)
-        # s_init = game.to_string_representation()
-        # root = mcts.Node(state=s_init, game_state=game)
-        root = mcts.Node2(None, None, game.starting_player)
-        # root_copy = root
+        s_init = game.to_string_representation()
+        root = mcts.Node2(None, None, game.starting_player, s_init)
         mct = mcts.MCTS2(root, ANET, starting_player, cfg['epsilon'], game)
-
-        # legal_moves = game.get_legal_moves()
 
         done = False
         while not done:
-            # mctGame = deepcopy(game) # game.game_from_game(root.game_state_string, root.game_state)
-            
-            # leaf_nodes = []
             for search_game in range(num_search_games):
-                # path = mct.select(mctGame, root)
-                # leaf_node = path[-1]
-                # leaf_nodes.append(leaf_node)
-                # mct.expand(leaf_node)
-                # final_state, reward = mct.rollout(mctGame, leaf_node)
-                # mct.backprop(leaf_node, reward)
-                # mctGame = deepcopy(game) # game.game_from_game(root.game_state_string, root.game_state)
-                leaf_node, leaf_state = mct.select()
+                leaf_node, leaf_state, path, actions = mct.select()
                 turn = leaf_state.player
-                outcome = mct.rollout(leaf_state)
-                mct.backprop(leaf_node, turn, outcome)
-            # dist = root.get_action_distribution() # list(map(lambda x: x[1].num_visits, list(root.children.items())))
+                outcome = mct.rollout(leaf_state, path)
+                mct.backprop(leaf_node, turn, outcome, path, actions)
+
             dist = mct.get_action_distribution()
-            # print(dist)
-            # RBUF.append((root.game_state_string, dist))
             RBUF.append((game.to_string_representation(), dist))
             max_ind = dist.index(max(dist))
             game_legal_moves = game.LEGAL_MOVES.copy()
@@ -189,11 +138,10 @@ def test_hex(cfg):
             if done:
                 break
 
-            # new_root = list(filter(lambda x: x.game_state_string == string_state, list(root.children.values())))[0]
-            new_root = root.children[move]
+            new_root = list(filter(lambda x: x.move == move, mct.graph[hash(root.state)]))[0]
             # time.sleep(.5)
             # mct.show()
-            mct.prune(new_root, deepcopy(game))
+            mct.prune(new_root, game)
             root = new_root
 
         loss = ANET.trainOnRBUF(RBUF, 128 if len(RBUF) >= 128 else len(RBUF))
@@ -208,7 +156,7 @@ def test_hex(cfg):
         player1[episode+1] = player1wins
         player2[episode+1] = player2wins
         print(f'Player {player} wins!')
-        if (episode + 1) % anet_save_interval == 0 and cfg['training']['save']:
+        if (episode + 1) % anet_save_interval == 0 and cfg['training']['save']: 
             ANET.save(f'Hex/{cfg["hex"]["board_size"]}', f"hex-{cfg['hex']['board_size']}x{cfg['hex']['board_size']}-at-{episode + 1}-of-{num_games}-episodes-with-{num_search_games}-simulations-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}")
 
 
@@ -225,39 +173,45 @@ def test_hex(cfg):
     plt.legend()
     plt.show()
 
-def me_against_nim():
+def me_against_nim(cfg):
     
-    ANET = nn.Actor(cfg)
+    # ANET = nn.Actor(cfg)
     modes_folder = 'TrainedNetworks/Nim'
-    diff = int(input(f'0: Easy, 1: Medium, 2: Hard, 3: Extra hard: '))
+    # diff = int(input(f'0: Easy, 1: Medium, 2: Hard, 3: Extra hard: '))
     modes = os.listdir(modes_folder)
     print(modes)
-    ANET.load(f'{modes[diff]}')
     
-    starting_player = input('Who starts, you (me), computer (comp) or random (rand)? ')
-
-    if starting_player.lower() == "me":
-        me = 1
-        comp = 2
-        print('You are starting, get ready!')
-    elif starting_player.lower() == 'comp':
-        me = 2
-        comp = 1
-        print('Computer is starting, get ready!')
-    else:
+    starting_player = int(input('Who starts, you (1), computer (2) or random (3)? '))
+    # if starting_player.lower() == "me":
+    #     me = 1
+    #     comp = 2
+    #     print('You are starting, get ready!')
+    # elif starting_player.lower() == 'comp':
+    #     me = 2
+    #     comp = 1
+    #     print('Computer is starting, get ready!')
+    if starting_player == 3:
         players = [1,2]
-        me = random.choice(players)
-        players.remove(me)
-        comp = players[0]
-        if me == 1:
-            print('You are starting, get ready!')
-        else:
-            print('Computer is starting, get ready!')
-    
+        starting_player = random.choice(players)
+        # me = random.choice(players)
+        # players.remove(me)
+        # comp = players[0]
+        # if me == 1:
+        #     print('You are starting, get ready!')
+        # else:
+        #     print('Computer is starting, get ready!')
+    if starting_player == 1:
+        print('You are starting, get ready!')
+    else:
+        print('Computer is starting, get ready!')
+
+    me = 1
+    comp = 2
     time.sleep(1)
     print()
     done = False
-    game = Nim(15, 3)
+    game = Nim(15, 3, starting_player)
+    actor = Policy('TrainedNetworks/nim/nim-2stones-3removal-at-1000-of-1000-episodes-12-04-2021-18-25', 'nim-2stones-3removal-at-1000-of-1000-episodes-12-04-2021-18-25', 2, cfg)
     while not done:
         
         print(f'There are {game.num_stones} left in the pile')
@@ -273,7 +227,7 @@ def me_against_nim():
             # dist = ANET.predict_val(game.to_string_representation()).detach().numpy().tolist()
             # print(dist)
             # move = dist.index(max(dist))+1
-            move = actor_move(ANET, game)
+            move = actor.get_move(game) # actor_move(ANET, game)
             time.sleep(1)
             print(f'Computer chose to remove {move} stones!')
             game.make_move(move)
@@ -288,20 +242,21 @@ def me_against_nim():
             if done == 'n':
                 done = True
             else:
-                game = Nim(15, 3)
+                game = Nim(15, 3, starting_player)
                 done = False
 
 def actor_move(ANET, game):
+    print(game.to_string_representation())
     distribution = ANET.predict_val(game.to_string_representation()).detach().numpy().tolist()
+    print(distribution)
     for i, move in enumerate(game.LEGAL_MOVES):
             if move not in game.get_legal_moves():
                 distribution[i] = 0
 
     distribution = [i/sum(distribution) for i in distribution]
-    random_move_prob = 1 
+    random_move_prob = 1
     print(distribution)
     if random_move_prob < random.uniform(0,1):
-        print('rand')
         ind = distribution.index(random.choices(population=distribution, weights=distribution)[0])
     else:
         ind = distribution.index(max(distribution))
@@ -310,9 +265,9 @@ def actor_move(ANET, game):
 
 if __name__ == '__main__':
     # do_games(cfg['training']['num_games'], cfg['training']['num_search_games'])
-
+    # test_nim(yaml.safe_load(open('config.yaml', 'r')))
     hex5conf = yaml.safe_load(open('hex5config.yaml', 'r'))
-    hex4conf = yaml.safe_load(open('config.yaml', 'r'))
-
+    # hex4conf = yaml.safe_load(open('config.yaml', 'r'))
+    me_against_nim(yaml.safe_load(open('config.yaml', 'r')))
     # test_hex(cfg['training']['num_games'], cfg['training']['num_search_games'])
     # test_hex(hex5conf)

@@ -1,61 +1,41 @@
-import torch
-import torch.optim as optim
-import torch.nn.functional as F
 import random
 import yaml
 import numpy as np
 from nn import NeuralNetwork
+import tensorflow as tf
+
 class Policy:
     def __init__(self, model, name, player, cfg):
         self.game_name = cfg['game']
-
-        if self.game_name == 'nim':
-            inp_size = len(str(cfg['nim']['num_stones'])) + 1
-        else:
-            inp_size = cfg['topp']['game']['board_size']**2 + 1
-
-        self.model = NeuralNetwork(cfg[self.game_name]['actor']['learning_rate'], 
-                                    inp_size, cfg[self.game_name]['actor']['layers'],
-                                    cfg[self.game_name]['actor']['loss_fn'], 
-                                    cfg[self.game_name]['actor']['activation_fn'], 
-                                    cfg[self.game_name]['actor']['output_activation'], 
-                                    cfg[self.game_name]['actor']['optimizer'])
+        self.random_move_prob = cfg['topp']['random_move_prob']
         
-        self.model.load_state_dict(torch.load(model))
-        self.model.eval()
-        # self.model = self.load_model(model)
+        if self.game_name == 'nim':
+            self.inp_size = len(str(cfg['nim']['num_stones']))
+        else:
+            self.inp_size = cfg['topp']['game']['board_size']**2 + 1
+
+        self.model = self.load_model(model)
         self.name = name
         self.player = player
+        self.random_move_prob = cfg['topp']['random_move_prob']
 
     def load_model(self, model):
-        # model = torch.load(open(model, 'rb'))
-        # model.eval()
-        # return model
-        model = self.ANET.model.load_state_dict(torch.load(model))
-        model.eval()
-        return model
+        return tf.keras.models.load_model(model, custom_objects={"deepnet_cross_entropy": NeuralNetwork.deepnet_cross_entropy})
 
     
     def string_state_to_tensor(self, st):
-        state = torch.Tensor([int(i) for i in st])
-        state = state.to(self.model.device, non_blocking=True)
-        return state
-
+       return np.array([float(i) for i in st]).reshape(1, self.inp_size)
+    
     def get_move(self, game):
-        # print(game.to_string_representation())
-        distribution = self.model(self.string_state_to_tensor(game.to_string_representation()))# .detach().numpy().tolist()
-        
-        if 'cuda' in distribution.device.type:
-            distribution = distribution.cpu().detach().numpy().tolist()
-        else:
-            distribution = distribution.detach().numpy().tolist()
+        distribution = self.model(self.string_state_to_tensor(game.to_string_representation())).numpy().flatten().tolist()
+
         for i, move in enumerate(game.LEGAL_MOVES):
                 if move not in game.get_legal_moves():
                     distribution[i] = 0
 
         distribution = [i/sum(distribution) for i in distribution]
 
-        random_move_prob = 1
+        random_move_prob = self.random_move_prob
         if random_move_prob < random.uniform(0,1):
             ind = distribution.index(random.choices(population=distribution, weights=distribution)[0])
         else:
@@ -70,48 +50,3 @@ class RandomPolicy:
     
     def get_move(self, game):
         return random.choice(game.get_legal_moves())
-
-
-class OHTPolicy:
-    def __init__(self, model, name, player):
-        self.model.load_state_dict(torch.load(model))
-        self.model.eval()
-        # self.model = self.load_model(model)
-        self.name = name
-        self.player = player
-
-    def load_model(self, model):
-        # model = torch.load(open(model, 'rb'))
-        # model.eval()
-        # return model
-        model = self.ANET.model.load_state_dict(torch.load(model))
-        model.eval()
-        return model
-
-    
-    def string_state_to_tensor(self, st):
-        state = torch.Tensor([int(i) for i in st])
-        state = state.to(self.model.device, non_blocking=True)
-        return state
-
-    def get_move(self, game):
-        # print(game.to_string_representation())
-        distribution = self.model(self.string_state_to_tensor(game.to_string_representation()))# .detach().numpy().tolist()
-        
-        if 'cuda' in distribution.device.type:
-            distribution = distribution.cpu().detach().numpy().tolist()
-        else:
-            distribution = distribution.detach().numpy().tolist()
-        for i, move in enumerate(game.LEGAL_MOVES):
-                if move not in game.get_legal_moves():
-                    distribution[i] = 0
-
-        distribution = [i/sum(distribution) for i in distribution]
-
-        random_move_prob = 1
-        if random_move_prob < random.uniform(0,1):
-            ind = distribution.index(random.choices(population=distribution, weights=distribution)[0])
-        else:
-            ind = distribution.index(max(distribution))
-
-        return game.LEGAL_MOVES[ind]

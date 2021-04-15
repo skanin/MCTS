@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
-from games.hex_game import Hex, Hex2, Board, Graph, Hex3
+from games.hex_game import Hex, Board, Graph
 from games.nim import Nim
 from nn import Actor, Rbuf
-from mcts import MCTS2, Node2
+from mcts import MCTS, Node
 import time
 import pickle
 
@@ -14,7 +14,6 @@ class ReinfocementLearner:
         # -------------------------
         self.num_games = cfg['training']['num_games']
         self.alternate_players = cfg['training']['alternate_players']
-        self.num_search_games = cfg['training']['num_search_games']
         self.num_search_games_limit = cfg['training']['num_search_games_limit']
         self.time_limit = cfg['training']['rollout_time_limit']
         self.save_anet = cfg['training']['save']
@@ -42,7 +41,7 @@ class ReinfocementLearner:
         # ANET specific configs
         # ---------------------
         if self.game_name == 'nim':
-            inp_size = len(str(self.num_stones)) + 1
+            inp_size = len(str(self.num_stones))
         else:
             inp_size = self.board_size**2 + 1
 
@@ -69,10 +68,9 @@ class ReinfocementLearner:
             print(f'Episode {episode + 1}/{self.num_games}')
             
             game = self.init_game()
-
             s_init = game.to_string_representation()
-            root = Node2(None, None, game.starting_player, s_init)
-            mct = MCTS2(root, self.ANET, game.starting_player, self.epsilon, self.epsilon_decay, self.target_epsilon, game)
+            root = Node(None, None, game.starting_player, s_init)
+            mct = MCTS(root, self.ANET, game.starting_player, self.epsilon, self.epsilon_decay, self.target_epsilon, game, self.c)
 
             done = False
             
@@ -81,7 +79,6 @@ class ReinfocementLearner:
 
             while not done:
                 start_time = time.time()
-                # for _ in range(self.num_search_games):
                 i = 0
                 while time.time() - start_time < self.time_limit and i < self.num_search_games_limit:
                     i += 1 
@@ -90,9 +87,10 @@ class ReinfocementLearner:
                     outcome = mct.rollout(leaf_state, path)
                     mct.backprop(leaf_node, turn, outcome, path, actions)
 
+                
                 dist = mct.get_action_distribution()
-        
-                self.RBUF.add((game.to_string_representation(), dist))
+               
+                self.RBUF.add((game.to_string_representation(), dist.copy()))
 
                 move = game.LEGAL_MOVES[dist.index(max(dist))]
 
@@ -107,24 +105,22 @@ class ReinfocementLearner:
                 if done:
                     break
 
-                new_root = list(filter(lambda x: x.move == move, mct.graph[hash(root.state)]))[0]
-
-                # if episode + 1 == self.num_games:
-                #     time.sleep(.5)
-                #     mct.show()
+                
+                new_root = mct.nodes[game.to_string_representation()]
+                # time.sleep(.5)
+                # mct.show()
                 mct.prune(new_root, game)
                 root = new_root
             
             if self.alternate_players:
                 self._change_starting_player()
-            # if episode + 1 == self.num_games:
-            #     time.sleep(.5)
-            #     mct.show()
+
+            # time.sleep(.5)
+            # mct.show()
             print(f'Player {player} wins!!')
 
             self._anet_train(episode)
             self._add_player_wins(player, episode)
-            
 
             if (episode + 1) % self.anet_save_interval == 0 and self.save_anet:
                 self.ANET.save(self.game_name, game, episode+1, self.num_games)
@@ -133,8 +129,7 @@ class ReinfocementLearner:
         if self.game_name.lower() != 'hex':
             raise ValueError('Game is not Hex. Cannot call init_hex!')
 
-        return Hex3(self.board_size, self.display, self.starting_player, self.cfg)
-        # return Hex2(self.board_size, self.display, self.starting_player)
+        return Hex(self.board_size, self.display, self.starting_player, self.cfg)
     
     def _init_nim(self):
         if self.game_name.lower() != 'nim':
@@ -162,13 +157,19 @@ class ReinfocementLearner:
         loss_y_values = [x[1] for x in self.losses]
         loss_x_values = [x[0] for x in self.losses]
 
+        plt.cla()
+        plt.clf()
         plt.plot(loss_x_values, loss_y_values, color='tab:orange', label='loss')
         plt.legend()
-        plt.show()
+        plt.show(block=True)
 
     def plot_winnings(self):
         X = [i+1 for i in range(self.num_games)]
+
+        plt.cla()
+        plt.clf()
+
         plt.plot(X, self.player1, color='r', label='Player 1')
         plt.plot(X, self.player2, color='g', label='Player 2')
         plt.legend()
-        plt.show()
+        plt.show(block=True)

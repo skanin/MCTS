@@ -1,286 +1,216 @@
 import random
-from .node import Node
-# from game import Graph
-from graphviz import Digraph
-from copy import deepcopy
 from collections import defaultdict
+from copy import deepcopy, copy
+from graphviz import Digraph
+from numpy.random import choice
+from .node import Node
+import math
+import time
+
 class MCTS:
-    def __init__(self, root, ANET, player):
+    def __init__(self, root, ANET, player, epsilon, epsilon_decay, target_epsilon, game, c):
+        self.children = defaultdict(dict)
         self.root = root
         self.ANET = ANET
-        self.children = dict()
-        self.N = defaultdict(int)
-        self.Q = defaultdict(int)
         self.player = player
-        self.epsilon = .5
-
-    
-    def leaf_search(self, game, node=None):
-        if node is None:
-            node = self.root
-
-        # if node not in self.children:
-        #     return node.find_random_child()
-        
-        if not node.children:
-            return node
+        self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
+        self.target_epsilon = target_epsilon
+        self.graph = defaultdict(list)
+        self.states = dict()
+        self.nodes = dict()
+        self.root_state = game
+        self.c = c
+        self.Q = defaultdict(int)
+        self.nsa = defaultdict(int)
 
 
-        if (self.is_leaf(node) or not node.children) and node != self.root:
-            if not node.children:
-                return node
+    def add_to_state_dict(self, node, state):
+        if state not in self.states:
+            self.states[state] = node
 
-            action, next_node = self.tree_policy(list(node.children.items()), game.player)
-            self.make_move(action, game, next_node)
-            print(next_node.num_times_action_taken)
-            return next_node
+    def add_to_nodes(self, node):
+        if node.state not in self.nodes:
+            self.nodes[node.state] = node 
 
-        action, next_node = self.tree_policy(list(node.children.items()), game.player)
-        # print(action)
-        self.make_move(action, game, next_node)
-        return self.leaf_search(game, next_node)
+    def select(self):
+        node = self.root
+        state = deepcopy(self.root_state)
 
-    
-    def select1(self, game, node):
-        path = []
-        while True:
+        parent = node
+        path = [node]
+        actions = []
+
+        self.add_to_nodes(node)
+
+        while node.children:
+            node = self.get_best_utc(node)
+
+            move = node.get_move(parent)
+            parent = node
+            state.make_move(move, mcts=True)
+
             path.append(node)
-            self.make_move(node.move, game, node)
-            if not node.children:
-                # node is either unexplored or terminal
-                return path
-            unexplored = list(filter(lambda x: x.num_visits == 0, node.children.values()))
-            if unexplored:
-                n = unexplored.pop()
-                path.append(n)
-                self.make_move(n.move, game, n)
-                return path
-            node = self.tree_policy(list(node.children.items()), game.player)[1]  # descend a layer deeper
-
-    def select2(self, game, node) -> tuple:
-        """
-        Select a node in the tree to preform a single simulation from.
-        """
-        # stop if we find reach a leaf node
-        path = []
-        while len(node.children) != 0:
-            path.append(node)
-            # descend to the maximum value node, break ties at random
-            children = node.children.values()
-            max_value = max(children, key=lambda n: n.get_value).value
-            max_nodes = [n for n in node.children.values()
-                         if n.get_value == max_value]
-            node = random.choice(max_nodes)
-            self.make_move(node.move, game, node)
-
-            # if some child node has not been explored select it before expanding
-            # other children
+            actions.append(move)
+            
+            self.add_to_nodes(node)
+            
             if node.num_visits == 0:
-                path.append(node)
-                return path
+                return node, state, path, actions
 
-        # if we reach a leaf node generate its children and return one of them
-        # if the node is terminal, just return the terminal node
-        if self.expand(node):
-            node = random.choice(list(node.children.values()))
-            self.make_move(node.move, game, node)
+        if self.expand(node, state):
+            parent = node
+            node = random.choice(list(parent.children.values()))
+            move = node.get_move(parent)
+            state.make_move(move, mcts=True)
             path.append(node)
+            actions.append(move)
+            self.add_to_nodes(node)
+        return node, state, path, actions
 
-        return path
+    def get_node_from_state(self, state):
+        return self.states[state]
 
-    def select(self, game, node):
-        path = []
-        path.append(node)
-        while node.is_fully_expanded():
-            self.make_move(node.move, game, node)
-            node = self.tree_policy(node)[1]
-            path.append(node)
+    def expand(self, node, state):
+        if state.winner != -1:
+            return False
 
-        node = self.pick_unvisited_child(node) or node
-        path.append(node)
-        self.make_move(node.move, game, node)
-        # self.make_move(node.move, game, node)
-        # node = self.tree_policy(list(node.children.items()), game)[1]
-        # path.append(node)
-        # self.make_move(node.move, game, node)
-        return path
+        new_player = 1 if state.player == 2 else 2
+        tmp_state = deepcopy(state)
+        for move in state.get_legal_moves():
+            tmp_state.make_move(move, mcts=True)
+            tmp_state_rep = tmp_state.to_string_representation()
 
-    def pick_unvisited_child(self, node):
-        children = list(filter(lambda x: x.num_visits == 0, list(node.children.values())))
-        return random.choice(children) if children else False
+            if tmp_state_rep in self.nodes:
+                child = self.nodes[tmp_state_rep]
+                child.add_parent(node)
+                child.add_move(node, move)
+            else: 
+                child = Node(move, node, new_player, tmp_state_rep)
+            
+            self.add_to_nodes(child)
 
-
-    def expand(self, node):
-        return node.generate_child_states()
-
-    def is_leaf(self, node):
-        return len(list(filter(lambda x: x.num_visits == 0, node.children.values())))
-
-    def tree_policy(self, node):
-        # values = list(map(lambda x: [x[0], x[1].get_q_value(x[0])], nodes))
-        # # print(values)
-        # for i, val in enumerate(values):
-        #     values[i][1] = val[1] + (nodes[i][1].get_usa(val[0]) * -1 if game.player != game.starting_player else 1)
-        # # print(values)
-        # if game.player == game.starting_player:
-        #     ind = values.index(max(values, key=lambda x: x[1]))
-        # else:
-        #     # print('Values')
-        #     # print(values)
-        #     ind = values.index(min(values, key=lambda x: x[1]))
-        #     # print('Nodes')
-        #     # print(nodes[ind])
-        # # print(ind)
-        # return nodes[ind]
-        # return random.choice(nodes)
-        val = self.get_best_utc(node)
-        print(val)
-        return val
-
-    def get_best_utc(self, node):
-        if node.game_state.player == self.player:
-            return max(node.children.items(), key=lambda x: self.get_utc(x[1]), default=node)
-        return min(node.children.items(), key=lambda x: self.get_utc_neg(x[1]), default=node)
-
-    def get_exploration_constant(self, node):
-        return node.get_usa()
-
-    def get_exploitation_constant(self, node):
-        return node.get_q_value()
-
-    def get_utc(self, node):
-        return self.get_exploitation_constant(node) + self.get_exploration_constant(node)
-    
-    def get_utc_neg(self, node):
-        return self.get_exploitation_constant(node) - self.get_exploration_constant(node)
-
-    def make_move(self, action, game, node):
-        if node.move in game.get_legal_moves():
-            node.add_action_taken(action)
-            game.make_move(action)
-
-    def get_move_default_policy(self, state, legal_moves, game_legal_moves):
-        distribution = self.ANET.predict_val(state)
-        best_action = None
-        best_val = float('-inf')
-        if 'cuda' in distribution.device.type:
-            distribution = distribution.cpu().detach().numpy()
-        else:
-            distribution = distribution.detach().numpy()
-        for i, val in enumerate(distribution):
-            move = game_legal_moves[i]
-            if best_val > val or move not in legal_moves:
-                continue
-
-            # if i+1 in list(map(lambda x: x[1], legal_moves)):
-            best_val = val
-            best_action = move # list(filter(lambda x: x[1] == i+1, legal_moves))[0]
-        return best_action
-
+            tmp_state = deepcopy(state)
+       
+        return True
 
     def should_random_move(self):
-        return self.epsilon < random.uniform(0,1)
-
-    def rollout(self, game, node):
-        # print('Rollout')
-        # graph = Graph(game.board, True, .5)
-        # graph.show_board()
-        legal_moves = game.get_legal_moves()
-        # print(legal_moves)
-        curr_node = node
-        curr_player = game.player
-        game_type = game.cfg['game']
-        
-        while len(legal_moves):
-            if self.should_random_move():
-                move = random.choice(legal_moves)
-            else:
-                move = self.get_move_default_policy(game.to_string_representation(), legal_moves, game.LEGAL_MOVES)
-            
-            if game_type == 'hex':
-                if game.display:
-                    game_state, _, done, _, legal_moves = game.make_move(move)
-                else:
-                    game_state, done, _, legal_moves = game.make_move(move)
-            else:
-                game_state, done, _, legal_moves = game.make_move(move)
-            # graph.show_board()
-            
-            # child_node = Node(state=game_state, move=move, parent=curr_node, game_state=deepcopy(game))
-            # curr_node.add_child(child_node, move)
-            # if curr_node.game_state_string == child_node.game_state_string:
-            #     print(curr_node.game_state_string)
-            #     print(child_node.move)
-            #     print(child_node.game_state_string)
-            # child_node.num_visits += 1
-            # child_node.nsa[id(curr_node)][id(child_node)] += 1
-            
-            # curr_node = child_node
-            
-            # print('Node')
-            # print(node.children)
-            # print('Curr node')
-            # print(curr_node.children)
-
-            if done:
-                break
-        # print('Rollout end')
-
-        player = game.get_winner()
-        # print(player)
-        if player == self.player:
-            print(game.to_string_representation())
-            reward = 1
-        else:
-            reward = -1
-
-        # print(f'Player: {player}, reward: {reward}')
-        return node, reward
+        return random.uniform(0,1) < self.epsilon
     
-    # def backprop(self, node, reward):
-    #     node.backprop += 1
-    #     node.value += reward
-    #     if node.parent == None:
-    #         return node
-    #     return self.backprop(node.parent, reward)
+    def rollout(self, state, path):
+        moves = state.get_legal_moves() 
+    
+        while state.winner == -1:
+            move = self.get_move_default_policy(state.to_string_representation(), moves, state.LEGAL_MOVES)
+            if state.cfg['game'] == 'hex' and state.cfg['hex']['display']:
+                _, _, _, _, moves = state.make_move(move, mcts=True)
+            else:
+                _, _, _, moves = state.make_move(move, mcts=True)
 
-    # def backprop(self, path, reward):
-    #     for node in reversed(path):
-    #         # if player == 1:
-    #         #     node.value += reward if reward > 0 else 0
-    #         # else:
-    #         #     node.value -= reward if reward < 0 else 0
-    #         node.value += reward
-    #         # if node.game_state.player == node.game_state.starting_player and reward > 0:
-    #         #     print(node.value)
-    #         #     node.value += reward
-    #         # elif node.game_state.player != node.game_state.starting_player and reward < 0:
-                
-    #             # node.value += reward
-    #         node.num_visits += 1
-    #     return True
+        return state.winner
 
-    def backprop(self, node, reward):
-        # print(type(node))
-        if node:
-            node.value += reward # if (node.game_state.player == self.player and reward > 0) or (node.game_state.player != self.player and reward < 0) else 0
+    def backprop(self, node, turn, outcome, path, actions):
+        reward =  1 if outcome == self.player else -1 
+        for i, node in enumerate(path):
             node.num_visits += 1
-            self.backprop(node.parent, reward)
-        return           
+            node.value += reward
+            if i > 0:
+                node.add_move(path[i-1], actions[i-1])
+                path[i-1].update_Q(actions[i-1])
+            
+    def get_node_parent(self, node):
+        for parent, children in self.graph.items():
+            if node in children:
+                return self.states[parent]
+
+        return None
+
+    def get_move_default_policy(self, state, legal_moves, game_legal_moves):
+        distribution = self.ANET.predict_val(state).numpy().tolist()
+
+        for i, move in enumerate(game_legal_moves):
+            if move not in legal_moves:
+                distribution[i] = 0
+
+
+        if sum(distribution) <= 0:
+            return random.choice(legal_moves)
+
+        distribution = [i/sum(distribution) for i in distribution]
+
+        if self.should_random_move():
+            self.epsilon = self.epsilon * self.epsilon_decay if self.epsilon > self.target_epsilon else self.epsilon
+            ind = distribution.index(random.choices(population=distribution, weights=distribution)[0])
+        else:
+            ind = distribution.index(max(distribution))
+            
+        return game_legal_moves[ind]
+
+    def get_node_children(self, node):
+        return self.graph[hash(node.state)]
+
+    def get_best_utc(self, node):
+        if node.player == self.player:
+            return max(list(node.children.values()), key=lambda x: self.get_utc(x, node))
+        return min(list(node.children.values()), key=lambda x: self.get_utc_neg(x, node))
+
+    def get_exploration_constant(self, node, parent):
+        return float('inf') if node.nsa[(parent, node.moves[parent])] == 0 else self.c * math.sqrt(math.log(parent.num_visits)/node.nsa[(parent, node.moves[parent])])
+
+    def get_exploitation_constant(self, node, parent):
+        return 0 if parent.nsa[node.move] == 0 else  node.value / parent.nsa[node.move]
+
+    def get_utc(self, node, parent):
+        return parent.Q[node.moves[parent]] + self.get_exploration_constant(node, parent)
+
+    def get_utc_neg(self, node, parent):
+        return parent.Q[node.moves[parent]] - self.get_exploration_constant(node, parent)
+
+    def prune(self, root, game):
+        self.root = root
+        self.root_state = deepcopy(game)
+        
 
     def generate_nodes_and_edges(self, node, graph):
-        graph.node(str(id(node)), str(node.game_state_string))
-        for key, val in node.children.items():
-            graph.node(str(id(val)), str(val.game_state_string))
-            graph.edge(str(id(val.parent)), str(id(val)), label = str(self.get_utc(val) if val.game_state.player == 1 else self.get_utc_neg(val)))
-        
-            self.generate_nodes_and_edges(val, graph)
+        graph.node(str(hash(node.state)), str(node.state) + ' : ' + str(node.num_visits))
+        for child in node.children.values():
+            graph.node(str(hash(child.state)), str(node.state) + ' : ' + str(node.num_visits))
+            graph.edge(str(hash(node.state)), str(hash(child.state)), label = f'{child.move} : {child.nsa[(node, child.get_move(node))]}')
 
+            self.generate_nodes_and_edges(child, graph)
 
     def show(self):
-        graph = Digraph(format='pdf')
+        graph = Digraph(format='pdf', strict=True)
         self.generate_nodes_and_edges(self.root, graph)
         graph.render(f'mct.gv', view=True)
 
-    def prune(self, node):
-        self.root = node
+
+    def get_action_distribution(self):
+        node = self.root
+        game_state = self.root_state
+
+        if len(node.children) == len(game_state.LEGAL_MOVES):
+            
+            l = list(map(lambda x: x.nsa[(node, x.get_move(node))], list(node.children.values())))
+            if sum(l) == 0:
+                return l
+            return [float(i)/sum(l) for i in l]
+
+        game = game_state.cfg['game']
+        if game == 'nim':
+            moves = list(map(lambda x: (x.get_move(node) - 1,  x.nsa[(node, x.get_move(node))]), list(node.children.values())))
+            dist = [0 for _ in range(len(game_state.LEGAL_MOVES))]
+            
+            for action in moves:
+                dist[action[0]] = action[1]
+        else:
+            moves = list(map(lambda x: (x.get_move(node), x.nsa[(node, x.get_move(node))]), list(node.children.values())))
+            dist = [0 for _ in range(len(game_state.LEGAL_MOVES))]
+            
+            inc = len(dist)**(.5)
+            for action in moves:
+                dist[int(action[0][0]*inc + action[0][1])] = action[1]
+
+        if sum(dist) == 0:
+            return dist
+        return [float(i)/sum(dist) for i in dist]

@@ -1,11 +1,10 @@
 import math
 import itertools
-from .space import Space
 from copy import deepcopy, copy
 from .board import Board
-from .UnionFind import UnionFind
 from .graph import Graph
 import yaml
+import random
 
 class Hex:
     def __init__(self, board_size, display, starting_player, cfg):
@@ -13,27 +12,25 @@ class Hex:
         self.player = starting_player
         self.starting_player = starting_player
         self.display = display
-        self.cfg = cfg # yaml.safe_load(open('config.yaml', 'r'))
-        self.LEGAL_MOVES = list(map(lambda x: x.get_coords(), itertools.chain(*self.board)))
+        self.cfg = cfg
+        self.LEGAL_MOVES = self.board.LEGAL_MOVES
         self.winner = -1
 
         if self.display:
-            self.graph = Graph(self.board, self.cfg['graph']['pause'], self.cfg['graph']['update_freq']) #board, pause, update_freq 
+            self.graph = Graph(self.board, self.cfg['graph']['pause'], self.cfg['graph']['update_freq'])
 
     
     def get_legal_moves(self):
-        # return list(map(lambda x: (self.player, x), self.board.get_legal_moves()))
         return self.board.get_legal_moves()
 
     def is_legal_move(self, move):
         return move in self.get_legal_moves()
 
-    def make_move(self, move):
+    def make_move(self, move, mcts=False):
         if not self.is_legal_move(move):
             raise Exception('Illegal move')
 
-        space = self.board.get_space_from_coord(move)
-        space.set_piece(True, self.player)
+        self.board.content[move[0]][move[1]] = self.player
 
         win = self.is_win()
 
@@ -43,17 +40,15 @@ class Hex:
             self.player = 1
 
         self.winner = win[0]
-        # self.player = int(not self.player) if not win[1] else self.player
+
         if not self.display:
             return self.to_string_representation(), win[1], self.player, self.get_legal_moves()
 
-        if win[1]:
-            # self.graph.pause = self.cfg['graph']['pause_on_win']
+        if win[1] and not mcts:
             self.graph.update_freq = 2
             self.graph.show_board(win[2])
             self.graph.update_freq = self.cfg['graph']['update_freq']
-        else:
-            
+        elif not mcts and not win[1]:
             self.graph.show_board()
 
         return self.to_string_representation(), win[0], win[1], win[2], self.get_legal_moves()
@@ -65,9 +60,11 @@ class Hex:
     def traverse(self, start, goal, player=0):
         open_list = []
         closed = []
+        get_player = lambda x: self.board[x]
+        start = Space(start, get_player(start))
 
-        start = self.board.get_space_from_coord(start)
-        
+        goal = Space(goal, get_player(goal))
+
         if start.player == -1 or start.player != player or goal.player != start.player:
             return []
 
@@ -76,27 +73,25 @@ class Hex:
         while len(open_list) > 0:
             space = min(open_list, key = lambda x: x.f)
             open_list.remove(space)
-            if not len(open_list) and space.player == -1:
+            if not len(open_list) and space.player == 0:
                 return []
 
-            while space.player == -1:
+            while space.player == 0:
                 space = min(open_list, key = lambda x: x.f)
                 open_list.remove(space)
                 if not len(open_list):
                     return []
 
-            # space = copy(space) # deepcopy(space) if self.display else copy(space)
-
-            if not space.has_piece() or space.get_player() != player:
+            if space.player == 0 or space.player != player:
                 continue
 
-            closed.append(space.get_coords())
+            closed.append(space.coords)
 
-            if space.get_coords() == goal.get_coords():
+            if space.coords == goal.coords:
                 path = []
                 current = space
                 while current is not None:
-                    coords = current.get_coords()
+                    coords = current.coords
                     if coords in path:
                         return path[::-1]
                     if coords not in path:
@@ -105,23 +100,21 @@ class Hex:
                     current = current.parent
                 return path[::-1]
             
-            for neighbor in filter(lambda x: x.player == space.player and x.get_coords() not in closed, space.get_neighbors()):
-                # if not neighbor.has_piece() or neighbor.get_player() != player or neighbor.get_coords() in closed:
-                #     print('Hey')
-                #     continue
-                
+            for neighbor in filter(lambda x: get_player(x) == space.player and x not in closed, self.board.get_neighbors(space.coords)):
                 g = space.f + 1
-                h = self.euclidean(goal.get_coords(), neighbor.get_coords())
+                h = self.euclidean(goal.coords, neighbor)
                 f = h + g
-                if neighbor.get_coords() in list(map(lambda x: x.get_coords(), open_list)):
-                    if neighbor.g > g:
+                if neighbor in list(map(lambda x: x.coords, open_list)):
+                    tmp = list(filter(lambda x: x.coords == neighbor, open_list))[0]
+                    if tmp.g > g:
                         continue
-
-                neighbor.parent = space if space != neighbor else space.parent
-                neighbor.g = g
-                neighbor.h = h
-                neighbor.f = f
-                open_list.append(neighbor)
+                
+                n = Space(neighbor, get_player(neighbor))
+                n.parent = space if space.coords != neighbor else space.parent
+                n.g = g
+                n.h = h
+                n.f = f
+                open_list.append(n)
         return []
         
 
@@ -137,14 +130,15 @@ class Hex:
         ]
 
         paths = []
-        if len(list(filter(lambda x: x.player==1, itertools.chain(*self.board.content)))) < 4:
+        if len(list(filter(lambda x: x==1, itertools.chain(*self.board.content)))) < 4:
             return -1, False, []
 
         for (player, start) in enumerate(start_states):
             player = player + 1
-            end_spaces = list(filter(lambda x: x.has_piece() and x.get_player() == player, map(self.board.get_space_from_coord, win_states[player-1])))
             for start_coord in start:
-                for goal in end_spaces:
+                for goal in win_states[player-1]:
+                    if self.board[goal] != player:
+                        continue
                     path = self.traverse(start_coord, goal, player=player)
                     if len(path) > 0:
                         paths.append((player, True, path))
@@ -161,13 +155,6 @@ class Hex:
         st = str(self.player) + self.board.to_string_representation()
         return st
 
-    def game_from_string_representation(self, st):
-        curr_player = int(st[0])
-        board = Board.board_from_string_representation(st)
-        game = Hex(board)
-        game.player = curr_player
-        return game
-
     def game_from_game(self, st, old_game):
         curr_player = int(st[0])
         board = Board.board_from_string_representation(st)
@@ -175,22 +162,20 @@ class Hex:
         game.player = curr_player
         game.starting_player = old_game.starting_player
         game.board = board
-        # game.starting_player = old_game.starting_player
         return game
 
-    # @staticmethod
-    # def generate_child_states(game):
-    #     legal_moves = game.get_legal_moves()
-    #     game_copy = copy(game)
-    #     child_states = []
-    #     for move in legal_moves:
-    #         game_copy.make_move(move)
-    #         child_states.append((move, game_copy.to_string_representation()))
-    #         game_copy = deepcopy(game)
-    #     return child_states
     
     def get_winner(self):
         win = self.is_win()
         if not win[1]:
             return False
         return win[0]
+
+class Space:
+    def __init__(self, coords, player):
+        self.coords = coords
+        self.player = player
+        self.f = 0
+        self.h = 0
+        self.g = 0
+        self.parent = None

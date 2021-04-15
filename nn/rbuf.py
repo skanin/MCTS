@@ -16,5 +16,9 @@ class Rbuf:
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size if len(self.memory) > batch_size else len(self.memory))
 
+    def reset(self):
+        self.memory = []
+        self.position = 0
+
     def __len__(self):
         return len(self.memory)

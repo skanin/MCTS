@@ -35,10 +35,9 @@ class Graph():
         self.G = nx.Graph() # Initialize graph
         self.edges = [] # Initialize edges to be empty
 
-        for space in itertools.chain(*self.board): # Loop through all spaces in the game board
-            for n in space.get_neighbors(): # Loop through this space's neighbors
-                if n is not None:
-                    self.edges.append((space, n)) # Add the (space, neighbor) relationship to edges
+        for space in self.board.LEGAL_MOVES: # Loop through all spaces in the game board
+            for n in self.board.get_neighbors(space): # Loop through this space's neighbors
+                self.edges.append((hash(space), hash(n))) # Add the (space, neighbor) relationship to edges
         
         self.pause = pause # Set pause
         self.init_graph() # Initialize graph
@@ -50,16 +49,16 @@ class Graph():
         if self.pause: # If the figure are to live update
             plt.ion() # ... set interactive mode on
         self.G.clear() # Clear the graph
-        self.G.add_nodes_from(itertools.chain(*self.board)) # Add nodes to the graph
+        self.G.add_nodes_from(map(hash, self.board.LEGAL_MOVES)) # Add nodes to the graph
         self.G.add_edges_from(self.edges) # Add edges to the graph (egdes calculated at instantiation)
     
     def generate_positions(self):
         pos = {} # Init empty position dictionary to fill with positions
-        for node in self.G: # Loop through the nodes i G
-            (x, y) = node.get_coords() # Get the node's coordinate
+        for node in self.board.LEGAL_MOVES: # Loop through the nodes i G
+            (x, y) = node # Get the node's coordinate
             # Set position of the node based on it's coordinate and board type (want triangle shape for triangle and diamond shape for diamond).
             # To be honest, theese values for position are trial and error. I just tweaked them until they fit.
-            pos[node] = (100 + (-x)*10 + y*10, 100 + (-y)*10 + -x*10)
+            pos[hash(node)] = (100 + (-x)*10 + y*10, 100 + (-y)*10 + -x*10)
         return pos
 
     def show_board(self, winning_path=[]):
@@ -74,13 +73,13 @@ class Graph():
 
         if len(winning_path):
             for node in winning_path:
-                sizes[list(map(lambda x: x.get_coords(), self.G.nodes)).index(node)] = 600
+                sizes[list(self.G.nodes).index(hash(node))] = 600
             
             for i in range(0, len(winning_path)-1):
                 try:
-                    index = list(map(lambda x: (x[0].get_coords(), x[1].get_coords()), self.G.edges)).index((winning_path[i], winning_path[i+1]))
+                    index = list(self.G.edges).index((hash(winning_path[i]), hash(winning_path[i+1])))
                 except:
-                    index = list(map(lambda x: (x[0].get_coords(), x[1].get_coords()), self.G.edges)).index((winning_path[i+1], winning_path[i]))
+                    index = list(self.G.edges).index((hash(winning_path[i+1]), hash(winning_path[i])))
                 weights[index] = 5
                 edge_color[index] = 'lightgreen'
 
@@ -98,10 +97,11 @@ class Graph():
         """
 
         colors = [] # Empty colors list
-        for node in itertools.chain(*self.board): # Iterate over the board
+        # print(self.board.content)
+        for node in itertools.chain(*self.board.content): # Iterate over the board
             color = ''
-            if node.has_piece(): # If the space has a piece
-                color = 'black' if node.get_player() == 1 else 'red'
+            if node != 0: # If the space has a piece
+                color = 'black' if node == 1 else 'red'
             else:
                 color = 'grey' # Else, set node color black 
             colors.append(color) # Append the color

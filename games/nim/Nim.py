@@ -15,7 +15,7 @@ class Nim():
         return [i for i in self.LEGAL_MOVES if i <= self.num_stones]
 
     def to_string_representation(self):
-        return f'{self.player if not self.is_win() else self.opposite_player()}{self.num_stones if self.num_stones >= 10 else "0" + str(self.num_stones)}'
+        return f'{self.player if not self.is_win() else self.opposite_player()}{self.num_stones}'
 
     def opposite_player(self):
         return 1 if self.player == 2 else 2

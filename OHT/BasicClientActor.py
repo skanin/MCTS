@@ -1,7 +1,7 @@
 import math
 import yaml
 from BasicClientActorAbs import BasicClientActorAbs
-from simWorld.hex_game.Hex import Hex
+from games.hex_game.hex import Hex
 from policy import Policy
 
 class BasicClientActor(BasicClientActorAbs):
@@ -26,7 +26,8 @@ class BasicClientActor(BasicClientActorAbs):
         """
 
         # This is an example player who picks random moves. REMOVE THIS WHEN YOU ADD YOUR OWN CODE !!
-        self.game = self.game.game_from_game(''.join(map(str, state)), self.game) 
+        self.game = self.game.game_from_game(''.join(map(str, state)), self.game)
+        print(self.game.to_string_representation() == ''.join(map(str, state))) 
         next_move = self.actor.get_move(self.game) # tuple(self.pick_random_free_cell(
             # state, size=int(math.sqrt(len(state)-1))))
         #############################
@@ -58,7 +59,7 @@ class BasicClientActor(BasicClientActorAbs):
             self.actor = Policy('hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', 'hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', self.series_id)
         elif self.game_size == 6:
             
-            self.actor = Policy('Hex-6x6-at-750-of-1000-episodes-13-04-2021-07-11', 'Hex-6x6-at-750-of-1000-episodes-13-04-2021-07-11', self.series_id, self.cfg)
+            self.actor = Policy('Hex-6x6-at-100-of-100-episodes-19-04-2021-14-35', 'Hex-6x6-at-100-of-100-episodes-19-04-2021-14-35', self.series_id, self.cfg)
         #############################
         #
         #
@@ -73,7 +74,7 @@ class BasicClientActor(BasicClientActorAbs):
         :return
         """
         self.starting_player = start_player
-        self.game = Hex(board_size = self.game_size, display = False, starting_player = start_player)
+        self.game = Hex(board_size = self.game_size, display = False, starting_player = start_player, cfg=self.cfg)
         
         #############################
         #

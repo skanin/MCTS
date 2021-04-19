@@ -127,7 +127,6 @@ class MCTS:
 
     def get_move_default_policy(self, state, legal_moves, game_legal_moves):
         distribution = self.ANET.predict_val(state).numpy().tolist()
-
         for i, move in enumerate(game_legal_moves):
             if move not in legal_moves:
                 distribution[i] = 0

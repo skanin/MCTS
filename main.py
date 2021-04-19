@@ -14,6 +14,6 @@ def topp(cfg):
     toppHex.play_tournament()
 
 if __name__ == '__main__':
-    # train_model(yaml.safe_load(open('config.yaml', 'r')))
+    train_model(yaml.safe_load(open('config.yaml', 'r')))
 
-    topp(yaml.safe_load(open('toppcfg.yaml', 'r')))
+    # topp(yaml.safe_load(open('toppcfg.yaml', 'r')))

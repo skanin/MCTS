@@ -25,13 +25,36 @@ class Policy:
     
     def string_state_to_tensor(self, st):
        return np.array([float(i) for i in st]).reshape(1, self.inp_size)
+
     
+    def string_state_to_numpy(self, st):
+        if len(st) == 2:
+            state = np.array([float(st[0]), float(st[1:])]).reshape((1,2))
+        else:
+            player = np.zeros((1,6))
+            player.fill(st[0])
+
+            state = np.append(player, np.array([float(i) for i in st[1:]]).reshape((6, 6))).reshape(1,7,6,1)
+
+            # state = np.array([float(i) for i in st]).reshape((1, len(st)))
+        return state
+
+    def string_state_to_numpy_dense(self, st):
+        if len(st) == 2:
+            state = np.array([float(st[0]), float(st[1:])]).reshape((1,2))
+        else:
+            state = np.array([float(i) for i in st]).reshape((1, len(st)))
+        return state
+
     def get_move(self, game):
-        distribution = self.model(self.string_state_to_tensor(game.to_string_representation())).numpy().flatten().tolist()
+        distribution = self.model(self.string_state_to_numpy_dense(game.to_string_representation())).numpy().flatten().tolist()
 
         for i, move in enumerate(game.LEGAL_MOVES):
                 if move not in game.get_legal_moves():
                     distribution[i] = 0
+
+        if sum(distribution) == 0:
+            return random.choice(game.get_legal_moves())
 
         distribution = [i/sum(distribution) for i in distribution]
 

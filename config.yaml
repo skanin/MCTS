@@ -1,9 +1,9 @@
 game: 'hex'
 
 training:
-    'num_games': 15
-    'num_search_games_limit': 10
-    'rollout_time_limit': 2
+    'num_games': 1000
+    'num_search_games_limit': 500
+    'rollout_time_limit': 3
     'save': True
     'num_saves': 5
     'alternate_players': True
@@ -27,13 +27,13 @@ nim:
         'loss_fn': 'cross_entropy'
     
 hex:
-    'board_size': 4
+    'board_size': 6
     'display': False
     actor:
         'learning_rate': 0.0001
-        'layers': [100, 200, 100, 25, 16]
-        'optimizer': 'rmsprop'
-        'activation_fn': 'tanh'
+        'layers': [128, 36]
+        'optimizer': 'adam'
+        'activation_fn': 'relu'
         'output_activation': 'softmax'
         'loss_fn': 'cross_entropy'
 

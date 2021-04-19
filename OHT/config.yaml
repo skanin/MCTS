@@ -1,35 +1,38 @@
 game: 'hex'
 
-starting_player: 1
-
-epsilon: 0.1
+training:
+    'num_games': 1000
+    'num_search_games_limit': 500
+    'rollout_time_limit': 3
+    'save': False
+    'num_saves': 5
+    'alternate_players': True
+    'starting_player': 1
+    'epsilon': .99
+    'epsilon_decay': .99
+    'target_epsilon': .01
+    'c': 1
+    'rbuf_cap': 32
+    'minibatch_size': 32
 
 nim:
     'max_removal': 3
     'num_stones': 15
     actor:
-        'learning_rate': 0.001
-        'layers': [4, 10, 3]
-        'optimizer': 'sgd'
+        'learning_rate': .0001
+        'layers': [15, 3]
+        'optimizer': 'adam'
         'activation_fn': 'relu'
         'output_activation': 'softmax'
         'loss_fn': 'cross_entropy'
-
-training:
-    'num_games': 1000
-    'num_search_games': 200
-    'save': True
-    'num_saves': 5
     
-
-
 hex:
-    'board_size': 5
+    'board_size': 6
     'display': False
     actor:
-        'learning_rate': 0.001
-        'layers': [26, 30, 25]
-        'optimizer': 'sgd'
+        'learning_rate': 0.0001
+        'layers': [128, 36]
+        'optimizer': 'adam'
         'activation_fn': 'relu'
         'output_activation': 'softmax'
         'loss_fn': 'cross_entropy'
@@ -44,5 +47,5 @@ topp:
     
 graph:
     'pause': True
-    'update_freq': .01
-    'pause_on_win': False
+    'update_freq': .001
+    'pause_on_win': True

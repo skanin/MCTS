@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 from games.hex_game import Hex, Board, Graph
 from games.nim import Nim
-from nn import Actor, Rbuf
+from nn import Actor, Rbuf, ConvActor
 from mcts import MCTS, Node
 import time
 import pickle
+from copy import deepcopy
+import sys
+sys.setrecursionlimit(100000)
 
 class ReinfocementLearner:
     def __init__(self, cfg):
@@ -70,7 +73,7 @@ class ReinfocementLearner:
             game = self.init_game()
             s_init = game.to_string_representation()
             root = Node(None, None, game.starting_player, s_init)
-            mct = MCTS(root, self.ANET, game.starting_player, self.epsilon, self.epsilon_decay, self.target_epsilon, game, self.c)
+            mct = MCTS(root, self.ANET, 1, self.epsilon, self.epsilon_decay, self.target_epsilon, game, self.c)
 
             done = False
             
@@ -87,7 +90,7 @@ class ReinfocementLearner:
                     outcome = mct.rollout(leaf_state, path)
                     mct.backprop(leaf_node, turn, outcome, path, actions)
 
-                
+
                 dist = mct.get_action_distribution()
                
                 self.RBUF.add((game.to_string_representation(), dist.copy()))
@@ -111,7 +114,7 @@ class ReinfocementLearner:
                 # mct.show()
                 mct.prune(new_root, game)
                 root = new_root
-            
+
             if self.alternate_players:
                 self._change_starting_player()
 

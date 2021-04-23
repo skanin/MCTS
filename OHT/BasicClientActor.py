@@ -13,7 +13,8 @@ class BasicClientActor(BasicClientActorAbs):
         self.game = None
         self.actor = None
         self.game_size = 0
-
+        self.timeout = 2
+        
     def handle_get_action(self, state):
         """
         Here you will use the neural net that you trained using MCTS to select a move for your actor on the current board.
@@ -27,7 +28,7 @@ class BasicClientActor(BasicClientActorAbs):
 
         # This is an example player who picks random moves. REMOVE THIS WHEN YOU ADD YOUR OWN CODE !!
         self.game = self.game.game_from_game(''.join(map(str, state)), self.game)
-        print(self.game.to_string_representation() == ''.join(map(str, state))) 
+        # print(self.game.to_string_representation() == ''.join(map(str, state))) 
         next_move = self.actor.get_move(self.game) # tuple(self.pick_random_free_cell(
             # state, size=int(math.sqrt(len(state)-1))))
         #############################
@@ -52,14 +53,16 @@ class BasicClientActor(BasicClientActorAbs):
         """
         self.series_id = series_id
         self.game_size = game_params[0]
-        print(game_params)
-        if self.game_size == 4:
-            self.actor = Policy('hex-4x4-at-1000-episodes', 'hex-4x4-at-1000-episodes', self.series_id)
-        elif self.game_size == 5:
-            self.actor = Policy('hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', 'hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', self.series_id)
-        elif self.game_size == 6:
-            
-            self.actor = Policy('Hex-6x6-at-100-of-100-episodes-19-04-2021-14-35', 'Hex-6x6-at-100-of-100-episodes-19-04-2021-14-35', self.series_id, self.cfg)
+
+        series_players = list(map(lambda x: x[0], player_map))
+
+        if 1 in series_players or 999 in series_players:
+            self.timeout = 2
+        elif 3 in series_players:
+            self.timeout = 4
+        elif 2020 in series_players:
+            self.timeout = 6
+
         #############################
         #
         #
@@ -75,7 +78,7 @@ class BasicClientActor(BasicClientActorAbs):
         """
         self.starting_player = start_player
         self.game = Hex(board_size = self.game_size, display = False, starting_player = start_player, cfg=self.cfg)
-        
+        self.actor = Policy('Hex-6x6-at-0500-of-1000-episodes-21-04-2021-20-54', 'Hex-6x6-at-0500-of-1000-episodes-21-04-2021-20-54', self.series_id, self.cfg, self.timeout)
         #############################
         #
         #

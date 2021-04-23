@@ -46,7 +46,11 @@ class Hex:
             return self.to_string_representation(), win[1], self.player, self.get_legal_moves()
 
         if win[1] and not mcts:
+<<<<<<< HEAD
             self.graph.update_freq = 5
+=======
+            self.graph.update_freq = 2
+>>>>>>> c9388ebca9b1b337c54cb8f8c20f15125e4f692d
             self.graph.show_board(win[2])
             self.graph.update_freq = self.cfg['graph']['update_freq']
         elif not mcts and not win[1]:

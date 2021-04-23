@@ -14,7 +14,6 @@ class BasicClientActor(BasicClientActorAbs):
         self.actor = None
         self.game_size = 0
         self.timeout = 2
-
     def handle_get_action(self, state):
         """
         Here you will use the neural net that you trained using MCTS to select a move for your actor on the current board.

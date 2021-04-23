@@ -1,30 +1,27 @@
 import random
 import yaml
 import numpy as np
-from nn import NeuralNetwork
-import tensorflow as tf
+from mcts import MCTS, Node
+import time
 
 class Policy:
-    def __init__(self, model, name, player, cfg):
+    def __init__(self, model, name, player, cfg, timeout):
         self.game_name = cfg['game']
-        
-        if self.game_name == 'nim':
-            self.inp_size = len(str(cfg['nim']['num_stones']))
-        else:
-            self.inp_size = cfg['hex']['board_size']**2 + 1
-
-        self.model = self.load_model(model)
+        self.inp_size = cfg['hex']['board_size']**2 + 1
+        self.timeout = timeout
+        # self.model = self.load_model(model)
         self.name = name
         self.player = player
         self.random_move_prob = 1
 
-    def load_model(self, model):
-        return tf.keras.models.load_model(model, custom_objects={"deepnet_cross_entropy": NeuralNetwork.deepnet_cross_entropy})
+    # def load_model(self, model):
+    #     return tf.keras.models.load_model(model, custom_objects={"deepnet_cross_entropy": NeuralNetwork.deepnet_cross_entropy})
 
     
-    def string_state_to_tensor(self, st):
-       return np.array([float(i) for i in st]).reshape(1, self.inp_size)
+    # def string_state_to_tensor(self, st):
+    #    return np.array([float(i) for i in st]).reshape(1, self.inp_size)
 
+    
     def string_state_to_numpy(self, st):
         if len(st) == 2:
             state = np.array([float(st[0]), float(st[1:])]).reshape((1,2))
@@ -43,7 +40,7 @@ class Policy:
         else:
             state = np.array([float(i) for i in st]).reshape((1, len(st)))
         return state
-    
+
     def get_move(self, game):
         # distribution = self.model(game.to_numpy()).numpy().flatten().tolist()
         distribution = self.model(game.to_numpy()).numpy().flatten().tolist()
@@ -60,6 +57,7 @@ class Policy:
             ind = distribution.index(max(distribution))
 
         return game.LEGAL_MOVES[ind]
+
 
 class RandomPolicy:
     def __init__(self, name, player):

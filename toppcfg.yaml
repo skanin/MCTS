@@ -1,0 +1,19 @@
+game: 'hex'
+
+topp:
+    'M': 5
+    'num_games': 50
+    'folder': TrainedNetworks/Test
+    'random_move_prob': 1
+    'alternate_players': True
+    'num_games_to_watch': 1
+    game:
+        'board_size': 6
+        'display': False
+    players:
+        'episode_num_len': 4
+    
+graph:
+    'pause': True
+    'update_freq': .01
+    'pause_on_win': False

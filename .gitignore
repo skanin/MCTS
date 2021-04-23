@@ -5,6 +5,5 @@ __pycache__/*
 __pycache__
 TrainedNetworks/*
 OHT/Networks/*
-OHT
 MCTS.zip
 mct.gv*

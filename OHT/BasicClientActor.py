@@ -2,17 +2,18 @@ import math
 import yaml
 from BasicClientActorAbs import BasicClientActorAbs
 from games.hex_game.hex import Hex
-from policy import Policy
+from mctpolicy import Policy
 
 class BasicClientActor(BasicClientActorAbs):
 
     def __init__(self, IP_address=None, verbose=True):
-        self.cfg = yaml.safe_load(open('../config.yaml', 'r'))
+        self.cfg = yaml.safe_load(open('config.yaml', 'r'))
         self.series_id = -1
         BasicClientActorAbs.__init__(self, IP_address, verbose=verbose)
         self.game = None
         self.actor = None
         self.game_size = 0
+        self.timeout = 2
 
     def handle_get_action(self, state):
         """
@@ -27,8 +28,9 @@ class BasicClientActor(BasicClientActorAbs):
 
         # This is an example player who picks random moves. REMOVE THIS WHEN YOU ADD YOUR OWN CODE !!
         self.game = self.game.game_from_game(''.join(map(str, state)), self.game)
-        print(self.game.to_string_representation() == ''.join(map(str, state))) 
+        # print(self.game.to_string_representation() == ''.join(map(str, state))) 
         next_move = self.actor.get_move(self.game) # tuple(self.pick_random_free_cell(
+        # print(next_move)
             # state, size=int(math.sqrt(len(state)-1))))
         #############################
         #
@@ -52,14 +54,18 @@ class BasicClientActor(BasicClientActorAbs):
         """
         self.series_id = series_id
         self.game_size = game_params[0]
-        print(game_params)
-        if self.game_size == 4:
-            self.actor = Policy('hex-4x4-at-1000-episodes', 'hex-4x4-at-1000-episodes', self.series_id)
-        elif self.game_size == 5:
-            self.actor = Policy('hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', 'hex-5x5-at-1000-of-1000-episodes-with-100-simulations-04-04-2021-20-00', self.series_id)
-        elif self.game_size == 6:
-            
-            self.actor = Policy('Hex-6x6-at-100-of-100-episodes-19-04-2021-14-35', 'Hex-6x6-at-100-of-100-episodes-19-04-2021-14-35', self.series_id, self.cfg)
+
+        series_players = list(map(lambda x: x[0], player_map))
+        print(series_players)
+        if 1 in series_players or 999 in series_players:
+            self.timeout = 3
+        elif 3 in series_players:
+            self.timeout = 4
+        elif 2020 in series_players:
+            self.timeout = 8
+
+        # self.actor = Policy('Hex-6x6-at-1000-of-1000-episodes-22-04-2021-04-39', 'Hex-6x6-at-1000-of-1000-episodes-22-04-2021-04-39', self.series_id, self.cfg)
+        
         #############################
         #
         #
@@ -75,7 +81,7 @@ class BasicClientActor(BasicClientActorAbs):
         """
         self.starting_player = start_player
         self.game = Hex(board_size = self.game_size, display = False, starting_player = start_player, cfg=self.cfg)
-        
+        self.actor = Policy('Hex-6x6-at-1000-of-1000-episodes-22-04-2021-16-52', 'Hex-6x6-at-1000-of-1000-episodes-22-04-2021-16-52', self.series_id, self.cfg, self.timeout)
         #############################
         #
         #

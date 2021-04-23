@@ -73,17 +73,12 @@ class NeuralNetwork():
     def init_model(self, inp_size, layers, activation_fn, output_activation, optimizer):
         model = keras.Sequential()
         # model.add(keras.layers.Dense(layers[0], input_dim=inp_size, kernel_initializer=keras.initializers.RandomUniform(minval=0., maxval=1.), activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
-        model.add(keras.layers.Conv2D(36, (1,1), input_shape=(7,6,1), activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
-        model.add(keras.layers.Conv2D(layers[0], (1,1), activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
+        model.add(keras.layers.Conv2D(256, (3,3), input_shape=(6,6,2), activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
+        model.add(keras.layers.Conv2D(256, (3,3), activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
         model.add(keras.layers.Flatten())
+        model.add(keras.layers.Dense(layers[0], activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
         model.add(keras.layers.Dense(layers[-1], activation=self.ACTIVATION_FUNCTIONS[output_activation]))
-        
-        # for i, size in enumerate(layers[1:]):
-        #     if i < len(layers) - 2:
-        #         model.add(keras.layers.Dense(size, activation=self.ACTIVATION_FUNCTIONS[activation_fn]))
-        #     else:
-        #         model.add(keras.layers.Dense(size, activation=self.ACTIVATION_FUNCTIONS[output_activation]))
-        
+
         model.compile(loss=self.loss_fn, optimizer=optimizer)
 
         return model
@@ -94,18 +89,21 @@ class NeuralNetwork():
 
 
     def train(self, RBUF):
-        x = []
-        y = []
-        for st, target in RBUF:
-            if self.inp_size == 2:
-                x.append(np.array([float(st[0]), float(st[1:])]))
-            else:
-                player = np.zeros((1,6))
-                player.fill(st[0])
-                state = np.append(player, np.array([float(i) for i in st[1:]])).reshape(7,6,1)
-                x.append(state)
-            y.append(np.array(target))
-        return self.model.fit(np.array(x), np.array(y), epochs=50, verbose=0).history['loss']
+        # x = []
+        # y = []
+        # for st, target in RBUF:
+        #     if self.inp_size == 2:
+        #         x.append(np.array([float(st[0]), float(st[1:])]))
+        #     else:
+        #         player = np.zeros((1,6))
+        #         player.fill(st[0])
+        #         state = np.append(player, np.array([float(i) for i in st[1:]])).reshape(7,6,1)
+        #         x.append(state)
+        #     y.append(np.array(target))
+
+        X = np.array([mem[0] for mem in RBUF])
+        y = np.array([mem[1] for mem in RBUF])
+        return self.model.fit(X, y, epochs=50, verbose=0).history['loss']
 
 class Actor():
     def __init__(self, lr, inp_size, layers, loss_fn, activation_fn, output_activation, optimizer):
@@ -113,7 +111,8 @@ class Actor():
 
 
     def predict_val(self, state):
-        return self.model.predict(self.string_state_to_numpy(state))
+        # return self.model.predict(self.string_state_to_numpy(state))
+        return self.model.predict(state)
 
     def string_state_to_numpy(self, st):
         if self.model.inp_size == 2:
@@ -137,7 +136,7 @@ class Actor():
         if game_name == 'nim':
             filename = f"nim-{self.model.inp_size-1}stones-{game.max_removal}removal-at-{episode}-of-{num_games}-episodes-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}"
         else:
-            filename = f"{game.board.board_size}/Hex-{game.board.board_size}x{game.board.board_size}-at-{episode}-of-{num_games}-episodes-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}"
+            filename = f"{game.board.board_size}/1500/Hex-{game.board.board_size}x{game.board.board_size}-at-{episode}-of-{num_games}-episodes-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}"
         print(f'Saving: {filename}')
         self.model.model.save(f'TrainedNetworks/{game_name}/{filename}')
 

@@ -101,7 +101,7 @@ class MCTS:
         moves = state.get_legal_moves() 
     
         while state.winner == -1:
-            move = self.get_move_default_policy(state.to_string_representation(), moves, state.LEGAL_MOVES)
+            move = self.get_move_default_policy(state.to_numpy(), moves, state.LEGAL_MOVES)
             if state.cfg['game'] == 'hex' and state.cfg['hex']['display']:
                 _, _, _, _, moves = state.make_move(move, mcts=True)
             else:

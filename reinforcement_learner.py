@@ -48,7 +48,7 @@ class ReinfocementLearner:
         else:
             inp_size = self.board_size**2 + 1
 
-        self.ANET = Actor(cfg[self.game_name]['actor']['learning_rate'], 
+        self.ANET = ConvActor(cfg[self.game_name]['actor']['learning_rate'], 
                                     inp_size, cfg[self.game_name]['actor']['layers'],
                                     cfg[self.game_name]['actor']['loss_fn'], 
                                     cfg[self.game_name]['actor']['activation_fn'], 
@@ -93,7 +93,7 @@ class ReinfocementLearner:
 
                 dist = mct.get_action_distribution()
                
-                self.RBUF.add((game.to_string_representation(), dist.copy()))
+                self.RBUF.add((game.to_numpy().reshape(self.board_size, self.board_size, 2), dist.copy()))
 
                 move = game.LEGAL_MOVES[dist.index(max(dist))]
 

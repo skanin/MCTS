@@ -47,7 +47,13 @@ class Policy:
         return state
 
     def get_move(self, game):
-        distribution = self.model(self.string_state_to_numpy_dense(game.to_string_representation())).numpy().flatten().tolist()
+        try:
+            distribution = self.model(game.to_numpy()).numpy().flatten().tolist()
+        except ValueError:
+            try:
+                distribution = self.model(self.string_state_to_numpy_dense(game.to_string_representation())).numpy().flatten().tolist()
+            except ValueError:
+                distribution = self.model(self.string_state_to_numpy(game.to_string_representation_old())).numpy().flatten().tolist()
 
         for i, move in enumerate(game.LEGAL_MOVES):
                 if move not in game.get_legal_moves():

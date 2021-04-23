@@ -125,7 +125,7 @@ class Actor():
         if game_name == 'nim':
             filename = f"nim-{self.model.inp_size-1}stones-{game.max_removal}removal-at-{episode}-of-{num_games}-episodes-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}"
         else:
-            filename = f"{game.board.board_size}/Hex-{game.board.board_size}x{game.board.board_size}-at-{episode}-of-{num_games}-episodes-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}"
+            filename = f"{game.board.board_size}/100/Hex-{game.board.board_size}x{game.board.board_size}-at-{episode}-of-{num_games}-episodes-{datetime.datetime.strftime(datetime.datetime.now(), '%d-%m-%Y-%H-%M')}"
         print(f'Saving: {filename}')
         self.model.model.save(f'TrainedNetworks/{game_name}/{filename}')
 

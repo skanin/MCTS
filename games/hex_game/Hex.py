@@ -5,6 +5,7 @@ from .board import Board
 from .graph import Graph
 import yaml
 import random
+import numpy as np
 
 class Hex:
     def __init__(self, board_size, display, starting_player, cfg):
@@ -120,14 +121,15 @@ class Hex:
 
     def is_win(self):
         start_states = [
-            [(i, 0) for i in range(self.board.board_size)],
-            [(0, i) for i in range(self.board.board_size)]
+            [(0, i) for i in range(self.board.board_size)],
+            [(i, 0) for i in range(self.board.board_size)]
         ]
 
-        win_states = [
-            [(i, self.board.board_size - 1) for i in range(self.board.board_size)], 
-            [(self.board.board_size - 1, i) for i in range(self.board.board_size)]
+        win_states = [ 
+            [(self.board.board_size - 1, i) for i in range(self.board.board_size)],
+            [(i, self.board.board_size - 1) for i in range(self.board.board_size)]
         ]
+
 
         paths = []
         if len(list(filter(lambda x: x==1, itertools.chain(*self.board.content)))) < 4:
@@ -152,8 +154,29 @@ class Hex:
         pass
 
     def to_string_representation(self):
-        st = str(self.player) + self.board.to_string_representation()
+        st = '-1' if self.player == 2 else '1'
+        for elem in self.board.to_string_representation():
+            st += '-1' if elem == '2' else elem
         return st
+    
+    def to_list_representation(self):
+        st = [-1] if self.player == 2 else [1]
+        for elem in self.board.to_string_representation():
+            st.append(-1) if elem == '2' else st.append(int(elem))
+        return st
+
+
+    def to_numpy(self, *args):
+        st = args[0] if len(args) else self.to_list_representation()
+
+        player = st[0]
+        board_size = int((len(st) - 1)**.5)
+        state = np.zeros((board_size, board_size, 2))
+        state[..., 1] = player
+        state[..., 0] = np.array(st[1:]).reshape(board_size, board_size)
+
+        return state.reshape(1, board_size, board_size, 2)
+
 
     def game_from_game(self, st, old_game):
         curr_player = int(st[0])
@@ -179,3 +202,17 @@ class Space:
         self.h = 0
         self.g = 0
         self.parent = None
+
+if __name__ == '__main__':
+    game = Hex(6, False, 1, {})
+    print(game.to_numpy())
+    print(game.to_string_representation())
+    print(game.to_list_representation())
+    game.make_move((0,0))
+    print(game.to_numpy())
+    print(game.to_string_representation())
+    print(game.to_list_representation())
+    game.make_move((0,1))
+    print(game.to_numpy())
+    print(game.to_string_representation())
+    print(game.to_list_representation())

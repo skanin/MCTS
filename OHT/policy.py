@@ -16,7 +16,7 @@ class Policy:
         self.model = self.load_model(model)
         self.name = name
         self.player = player
-        self.random_move_prob = .9
+        self.random_move_prob = 1
 
     def load_model(self, model):
         return tf.keras.models.load_model(model, custom_objects={"deepnet_cross_entropy": NeuralNetwork.deepnet_cross_entropy})
@@ -45,8 +45,8 @@ class Policy:
         return state
     
     def get_move(self, game):
-        distribution = self.model(self.string_state_to_numpy_dense(game.to_string_representation())).numpy().flatten().tolist()
-
+        # distribution = self.model(game.to_numpy()).numpy().flatten().tolist()
+        distribution = self.model(game.to_numpy()).numpy().flatten().tolist()
         for i, move in enumerate(game.LEGAL_MOVES):
                 if move not in game.get_legal_moves():
                     distribution[i] = 0

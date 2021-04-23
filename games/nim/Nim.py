@@ -34,7 +34,7 @@ class Nim():
     def change_player(self):
         self.player = 1 if self.player == 2 else 2
 
-    def make_move(self, move):
+    def make_move(self, move, mcts=True):
         if not self.is_legal_move(move):
             raise('Not legal move!')
         self.num_stones -= move

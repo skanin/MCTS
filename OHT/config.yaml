@@ -4,7 +4,7 @@ training:
     'num_games': 1000
     'num_search_games_limit': 500
     'rollout_time_limit': 3
-    'save': False
+    'save': True
     'num_saves': 5
     'alternate_players': True
     'starting_player': 1
@@ -30,7 +30,7 @@ hex:
     'board_size': 6
     'display': False
     actor:
-        'learning_rate': 0.0001
+        'learning_rate': 0.00001
         'layers': [128, 36]
         'optimizer': 'adam'
         'activation_fn': 'relu'
@@ -47,5 +47,5 @@ topp:
     
 graph:
     'pause': True
-    'update_freq': .001
+    'update_freq': 30
     'pause_on_win': True
